@@ -1,0 +1,18 @@
+## Interface: 11200
+## Title: Flash
+## Notes: Missing buff alert system.
+## Author: Perdurabe
+## Version: 0.11
+## SavedVariablesPerCharacter: FlashCharacterConfig
+
+FlashCore.lua
+FlashMenu.lua
+Druid.lua
+Hunter.lua
+Mage.lua
+Paladin.lua
+Priest.lua
+Rogue.lua
+Shaman.lua
+Warlock.lua
+Warrior.lua
