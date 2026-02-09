@@ -5,14 +5,10 @@
 ## Version: 0.11
 ## SavedVariablesPerCharacter: FlashCharacterConfig
 
+config.lua
+icons.lua
 FlashCore.lua
-FlashMenu.lua
-Druid.lua
-Hunter.lua
-Mage.lua
-Paladin.lua
-Priest.lua
-Rogue.lua
-Shaman.lua
-Warlock.lua
-Warrior.lua
+events.lua
+ui.lua
+menu.lua
+Classes.lua
