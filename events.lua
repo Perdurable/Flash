@@ -132,6 +132,24 @@ local function CheckForBuffsForClass(playerClass)
                         end
                     end
                 else
+                    local function MatchesBuffName(buffName, buffEntry)
+                        local lowered = string.lower(buffName)
+                        if buffEntry.detectedBuffPaths and type(buffEntry.detectedBuffPaths) == "table" then
+                            for _, probe in ipairs(buffEntry.detectedBuffPaths) do
+                                if probe and string.find(lowered, string.lower(probe), 1, true) then
+                                    return true
+                                end
+                            end
+                        end
+                        if buffEntry.detectedBuffPath and string.find(lowered, string.lower(buffEntry.detectedBuffPath), 1, true) then
+                            return true
+                        end
+                        if buffEntry.iconPath and string.find(lowered, string.lower(buffEntry.iconPath), 1, true) then
+                            return true
+                        end
+                        return false
+                    end
+
                     for j = 1, 40 do
                         local data = { UnitBuff("player", j) }
                         if not data or type(data) ~= "table" then break end
@@ -141,10 +159,7 @@ local function CheckForBuffsForClass(playerClass)
                         for k = 1, dataCount do
                             local v = data[k]
                             if type(v) == "string" then
-                                if buff.detectedBuffPath and string.find(string.lower(v), string.lower(buff.detectedBuffPath), 1, true) then
-                                    hasBuff = true; break
-                                end
-                                if buff.iconPath and string.find(string.lower(v), string.lower(buff.iconPath), 1, true) then
+                                if MatchesBuffName(v, buff) then
                                     hasBuff = true; break
                                 end
                             end
