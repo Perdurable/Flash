@@ -1,3 +1,11 @@
+--[[
+Rules:
+1) When dependencies or helpers are missing, call `Flash.DebugError(msg)` instead of silently falling back.
+2) Keep comments clear and up to date; add brief comments for non-obvious logic and behavior changes.
+3) Preserve existing public API names and file responsibilities unless the task explicitly requires otherwise.
+4) Avoid silent fallback behavior; prefer explicit, logged behavior for unexpected states.
+5) When choosing class icons, use Reference Material/Spell Icons and the matching class folder.
+]]
 -- ui.lua - centralized UI helper functions for Flash menu
 Flash = Flash or {}
 Flash.UI = Flash.UI or {}

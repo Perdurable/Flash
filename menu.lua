@@ -1,3 +1,11 @@
+--[[
+Rules:
+1) When dependencies or helpers are missing, call `Flash.DebugError(msg)` instead of silently falling back.
+2) Keep comments clear and up to date; add brief comments for non-obvious logic and behavior changes.
+3) Preserve existing public API names and file responsibilities unless the task explicitly requires otherwise.
+4) Avoid silent fallback behavior; prefer explicit, logged behavior for unexpected states.
+5) When choosing class icons, use Reference Material/Spell Icons and the matching class folder.
+]]
 -- Flash/menu.lua - moved menu code from FlashMenu.lua
 -- This file was created by refactoring to keep the main addon file smaller.
 -- The original contents of FlashMenu.lua were moved here verbatim.
@@ -94,6 +102,21 @@ local function SoundFullPath(soundFile)
     return "Interface\\AddOns\\Flash\\Media\\" .. soundFile
 end
 
+-- Resolve selected sound index from current config value.
+-- Returns 0 for "None", otherwise 1..N into Flash.soundFiles.
+local function ResolveSelectedSoundIndex()
+    Flash.config = Flash.config or {}
+    local selectedSound = tostring(Flash.config.selectedSound or "")
+    if selectedSound == "" then return 0 end
+    if not Flash or not Flash.soundFiles then return 0 end
+    for i, sound in ipairs(Flash.soundFiles) do
+        if string.find(selectedSound, sound, 1, true) then
+            return i
+        end
+    end
+    return 0
+end
+
 -- Safe wrapper for UIDropDownMenu_SetSelectedID that tolerates
 -- accidentally reversed or invalid arguments from other addons.
 local function SafeUIDropDown_SetSelectedID(frame, id)
@@ -182,6 +205,32 @@ local function Dropdown_Initialize()
     if selectedSound == "" then selectedID = 1 end
     SafeUIDropDown_SetSelectedID(soundDropdown, selectedID)
 end
+
+-- Refresh the visual sound control state from saved config.
+local function SyncSoundControlSelection()
+    Flash.config = Flash.config or {}
+    local idx = ResolveSelectedSoundIndex()
+    Flash.config._soundIndex = idx
+
+    if soundDropdown and soundDropdown.GetObjectType and soundDropdown:GetObjectType() == "Frame" then
+        if type(UIDropDownMenu_Initialize) == "function" then
+            UIDropDownMenu_Initialize(soundDropdown, Dropdown_Initialize)
+        end
+        SafeUIDropDown_SetSelectedID(soundDropdown, idx + 1)
+        if type(UIDropDownMenu_SetText) == "function" then
+            local label = "(None)"
+            if idx > 0 and Flash and Flash.soundFiles then
+                label = Flash.soundFiles[idx] or "(None)"
+            end
+            pcall(UIDropDownMenu_SetText, soundDropdown, label)
+        end
+    end
+
+    if FlashOptionsMenu and type(FlashOptionsMenu._updateSoundFallbackLabel) == "function" then
+        FlashOptionsMenu._updateSoundFallbackLabel()
+    end
+end
+
 -- Build the sound selector control (dropdown when available, fallback button otherwise)
 local function BuildSoundControl()
     if type(UIDropDownMenu_Initialize) == "function" and type(UIDropDownMenu_SetWidth) == "function" and type(UIDropDownMenu_CreateInfo) == "function" then
@@ -246,6 +295,8 @@ local function BuildSoundControl()
         end
         updateFB()
     end)
+    FlashOptionsMenu._soundFallbackButton = fb
+    FlashOptionsMenu._updateSoundFallbackLabel = updateFB
     updateFB()
 end
 
@@ -374,13 +425,33 @@ local function UpdateBuffSize_Global(key, val)
     if Flash and type(Flash.UpdateIconPosition) == "function" then Flash.UpdateIconPosition() end
 end
 
+-- Layout constants for class tracker rows and headers
+local CLASS_SECTION_OFFSET_X = 16
+local CLASS_SECTION_OFFSET_Y = -52
+local CLASS_HEADER_Y = -10
+local CLASS_BUFF_HEADER_X = 8
+local CLASS_ROW_START_Y = -28
+local CLASS_ROW_SPACING = 26
+local CLASS_INPUT_Y_OFFSET = -4
+local CLASS_COL_LABEL_X = 8
+local CLASS_COL_COMBAT_X = 220
+local CLASS_COL_SIZE_X = 300
+local CLASS_COL_X_X = 360
+local CLASS_COL_Y_X = 420
+local CLASS_HEADER_SIZE_CENTER_X = CLASS_COL_SIZE_X + 20
+local CLASS_HEADER_X_CENTER_X = CLASS_COL_X_X + 20
+local CLASS_HEADER_Y_CENTER_X = CLASS_COL_Y_X + 20
+
 local function BuildRow_Global(container, playerClass, i, buff)
     local detected = buff.detectedBuffPath or buff.iconPath or ("buff_"..i)
     local label = buff.displayName or detected
     local key = tostring(detected)
     local name = "FlashClassCB_"..playerClass.."_"..i
 
-    local cb = MakeCheckButton_Global(name, container, 8, -28 - ((i - 1) * 26), label, "GameFontNormal")
+    local rowY = CLASS_ROW_START_Y - ((i - 1) * CLASS_ROW_SPACING)
+    local inputRowY = rowY + CLASS_INPUT_Y_OFFSET
+
+    local cb = MakeCheckButton_Global(name, container, CLASS_COL_LABEL_X, rowY, label, "GameFontNormal")
 
     Flash.config = Flash.config or {}
     Flash.config.trackedSpells = Flash.config.trackedSpells or {}
@@ -394,7 +465,7 @@ local function BuildRow_Global(container, playerClass, i, buff)
 
     Flash.config.trackedSpellsInCombat = Flash.config.trackedSpellsInCombat or {}
     local cbCombatName = name.."_InCombat"
-    local cbCombat = MakeCheckButton_Global(cbCombatName, container, 220, -28 - ((i - 1) * 26), "In Combat", "GameFontNormalSmall")
+    local cbCombat = MakeCheckButton_Global(cbCombatName, container, CLASS_COL_COMBAT_X, rowY, "In Combat", "GameFontNormalSmall")
     if Flash.config.trackedSpellsInCombat[key] == nil then Flash.config.trackedSpellsInCombat[key] = false end
     cbCombat:SetChecked(Flash.config.trackedSpellsInCombat[key])
     cbCombat:SetScript("OnClick", function()
@@ -405,7 +476,7 @@ local function BuildRow_Global(container, playerClass, i, buff)
     Flash.config.buffIconSizes = Flash.config.buffIconSizes or {}
         if Flash.config.buffIconSizes[key] == nil then Flash.config.buffIconSizes[key] = 60 end
     local sizeName = name.."_Size"
-    local sizeBox = MakeEditBox_Global(sizeName, container, 300, -28 - ((i - 1) * 26))
+    local sizeBox = MakeEditBox_Global(sizeName, container, CLASS_COL_SIZE_X, inputRowY)
     sizeBox:SetText(tostring(Flash.config.buffIconSizes[key] or 60))
 
     Flash.config.buffIcons = Flash.config.buffIcons or {}
@@ -416,9 +487,9 @@ local function BuildRow_Global(container, playerClass, i, buff)
 
     local xName = name.."_X"
     local yName = name.."_Y"
-    local xBox = MakeEditBox_Global(xName, container, 360, -28 - ((i - 1) * 26))
+    local xBox = MakeEditBox_Global(xName, container, CLASS_COL_X_X, inputRowY)
     xBox:SetText(tostring(curX))
-    local yBox = MakeEditBox_Global(yName, container, 420, -28 - ((i - 1) * 26))
+    local yBox = MakeEditBox_Global(yName, container, CLASS_COL_Y_X, inputRowY)
     yBox:SetText(tostring(curY))
 
     local function applyXYFromBox()
@@ -468,7 +539,7 @@ local function BuildClassCheckboxes()
         cont:SetWidth(380)
         cont:SetHeight(300)
         -- align container under the sound label and nudge right so it sits inside the frame
-        cont:SetPoint("TOPLEFT", soundLabel, "BOTTOMLEFT", 16, -12)
+        cont:SetPoint("TOPLEFT", soundLabel, "BOTTOMLEFT", CLASS_SECTION_OFFSET_X, CLASS_SECTION_OFFSET_Y)
         cont:Show()
         -- no background texture so container matches the rest of the options frame
         FlashOptionsMenu._classContainer = cont
@@ -480,7 +551,7 @@ local function BuildClassCheckboxes()
     -- and sits inside the dialog frame.
     if container and soundLabel then
         container:ClearAllPoints()
-        container:SetPoint("TOPLEFT", soundLabel, "BOTTOMLEFT", 16, -12)
+        container:SetPoint("TOPLEFT", soundLabel, "BOTTOMLEFT", CLASS_SECTION_OFFSET_X, CLASS_SECTION_OFFSET_Y)
         container:SetParent(FlashOptionsMenu)
         container:Show()
     end
@@ -512,35 +583,42 @@ local function BuildClassCheckboxes()
         return
     end
 
-    -- title for the container: anchor directly to the sound label for exact alignment
-    if not container._title then
-        local t = FlashOptionsMenu:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-        t:SetPoint("TOPLEFT", soundLabel, "BOTTOMLEFT", 24, -6)
-        container._title = t
+    -- section header above the class buff checkbox area
+    if not container._sectionHeader then
+        local h = FlashOptionsMenu:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        container._sectionHeader = h
     end
-    container._title:SetText("Buffs to Track")
+    container._sectionHeader:ClearAllPoints()
+    container._sectionHeader:SetPoint("TOPLEFT", container, "TOPLEFT", CLASS_BUFF_HEADER_X, CLASS_HEADER_Y)
+    container._sectionHeader:SetText("Buffs to Track")
+
+    if container._title then
+        container._title:SetText("")
+    end
 
     -- Right column header for size edit boxes
     if not container._sizeHeader then
         local sh = FlashOptionsMenu:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        sh:SetPoint("TOPLEFT", container, "TOPLEFT", 300, -10)
         container._sizeHeader = sh
     end
+    container._sizeHeader:ClearAllPoints()
+    container._sizeHeader:SetPoint("TOP", container, "TOPLEFT", CLASS_HEADER_SIZE_CENTER_X, CLASS_HEADER_Y)
     container._sizeHeader:SetText("Size")
 
     -- X/Y headers so users can edit icon offsets directly (pixels from screen center)
     if not container._xHeader then
         local xh = FlashOptionsMenu:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        xh:SetPoint("TOPLEFT", container, "TOPLEFT", 360, -10)
         container._xHeader = xh
     end
+    container._xHeader:ClearAllPoints()
+    container._xHeader:SetPoint("TOP", container, "TOPLEFT", CLASS_HEADER_X_CENTER_X, CLASS_HEADER_Y)
     container._xHeader:SetText("X")
     if not container._yHeader then
         local yh = FlashOptionsMenu:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        yh:SetPoint("TOPLEFT", container, "TOPLEFT", 420, -10)
         container._yHeader = yh
     end
-    container._yHeader:SetText("Y")
+    container._yHeader:ClearAllPoints()
+    container._yHeader:SetPoint("TOP", container, "TOPLEFT", CLASS_HEADER_Y_CENTER_X, CLASS_HEADER_Y)
     container._yHeader:SetText("Y")
 
     -- Helpers reused for every row: define once to avoid per-row allocations
@@ -653,7 +731,10 @@ local function BuildClassCheckboxes()
 
         local name = "FlashClassCB_"..playerClass.."_"..i
 
-        local cb = MakeCheckButton(name, container, 8, -28 - ((i - 1) * 26), label, "GameFontNormal")
+        local rowY = CLASS_ROW_START_Y - ((i - 1) * CLASS_ROW_SPACING)
+        local inputRowY = rowY + CLASS_INPUT_Y_OFFSET
+
+        local cb = MakeCheckButton(name, container, CLASS_COL_LABEL_X, rowY, label, "GameFontNormal")
 
         -- Default to not tracking a buff unless the user explicitly enables it
         Flash.config = Flash.config or {}
@@ -671,7 +752,7 @@ local function BuildClassCheckboxes()
         -- In-Combat-only checkbox (to the right of the main checkbox)
         Flash.config.trackedSpellsInCombat = Flash.config.trackedSpellsInCombat or {}
         local cbCombatName = name.."_InCombat"
-        local cbCombat = MakeCheckButton(cbCombatName, container, 220, -28 - ((i - 1) * 26), "In Combat", "GameFontNormalSmall")
+        local cbCombat = MakeCheckButton(cbCombatName, container, CLASS_COL_COMBAT_X, rowY, "In Combat", "GameFontNormalSmall")
         if Flash.config.trackedSpellsInCombat[key] == nil then Flash.config.trackedSpellsInCombat[key] = false end
         cbCombat:SetChecked(Flash.config.trackedSpellsInCombat[key])
         cbCombat:SetScript("OnClick", function()
@@ -683,7 +764,7 @@ local function BuildClassCheckboxes()
         Flash.config.buffIconSizes = Flash.config.buffIconSizes or {}
         if Flash.config.buffIconSizes[key] == nil then Flash.config.buffIconSizes[key] = 60 end
         local sizeName = name.."_Size"
-        local sizeBox = MakeEditBox(sizeName, container, 300, -28 - ((i - 1) * 26))
+        local sizeBox = MakeEditBox(sizeName, container, CLASS_COL_SIZE_X, inputRowY)
         sizeBox:SetText(tostring(Flash.config.buffIconSizes[key] or 60))
 
         -- X and Y edit boxes: show current offsets and allow numeric entry to move icons
@@ -696,10 +777,10 @@ local function BuildClassCheckboxes()
         local curX = (info and info.xOffset) or (savedOffsets and tonumber(savedOffsets.x)) or 300
         local curY = (info and info.yOffset) or (savedOffsets and tonumber(savedOffsets.y)) or 200
 
-        local xBox = MakeEditBox(xName, container, 360, -28 - ((i - 1) * 26))
+        local xBox = MakeEditBox(xName, container, CLASS_COL_X_X, inputRowY)
         xBox:SetText(tostring(curX))
 
-        local yBox = MakeEditBox(yName, container, 420, -28 - ((i - 1) * 26))
+        local yBox = MakeEditBox(yName, container, CLASS_COL_Y_X, inputRowY)
         yBox:SetText(tostring(curY))
 
         local function applyXYFromBox()
@@ -764,6 +845,9 @@ end
 -- Safe wrapper and hook
 local function SafeBuildClassCheckboxes()
     if type(BuildClassCheckboxes) ~= "function" then return end
+
+    -- Keep sound selector display in sync with saved config when opening menu.
+    pcall(SyncSoundControlSelection)
 
     -- Cache class for icon frame creation
     local _, pclass = UnitClass("player")

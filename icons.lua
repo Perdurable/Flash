@@ -1,3 +1,11 @@
+--[[
+Rules:
+1) When dependencies or helpers are missing, call `Flash.DebugError(msg)` instead of silently falling back.
+2) Keep comments clear and up to date; add brief comments for non-obvious logic and behavior changes.
+3) Preserve existing public API names and file responsibilities unless the task explicitly requires otherwise.
+4) Avoid silent fallback behavior; prefer explicit, logged behavior for unexpected states.
+5) When choosing class icons, use Reference Material/Spell Icons and the matching class folder.
+]]
 -- icons.lua - icon/frame related helpers
 Flash = Flash or {}
 
@@ -46,6 +54,39 @@ local function LoadClassBuffs()
     playerClass = string.upper(playerClass)
     Flash.classBuffs = Flash.classBuffs or {}
     Flash.classBuffs[playerClass] = Flash.classBuffs[playerClass] or {}
+    -- Migrate legacy per-entry tracked keys into combined trackers
+    Flash.config = Flash.config or {}
+    Flash.config.trackedSpells = Flash.config.trackedSpells or {}
+    Flash.config.trackedSpellsInCombat = Flash.config.trackedSpellsInCombat or {}
+    Flash.config.buffIconSizes = Flash.config.buffIconSizes or {}
+    Flash.config.buffIcons = Flash.config.buffIcons or {}
+    local classBuffs = Flash.classBuffs[playerClass] or {}
+    for i, buff in ipairs(classBuffs) do
+        if buff and buff.detectedBuffPaths and type(buff.detectedBuffPaths) == "table" then
+            local newKey = tostring(buff.detectedBuffPath or buff.iconPath or ("buff_"..i))
+            for _, probe in ipairs(buff.detectedBuffPaths) do
+                if probe then
+                    local oldKey = tostring(probe)
+                    if Flash.config.trackedSpells[oldKey] then
+                        Flash.config.trackedSpells[newKey] = true
+                        Flash.config.trackedSpells[oldKey] = nil
+                    end
+                    if Flash.config.trackedSpellsInCombat[oldKey] then
+                        Flash.config.trackedSpellsInCombat[newKey] = true
+                        Flash.config.trackedSpellsInCombat[oldKey] = nil
+                    end
+                    if Flash.config.buffIconSizes[oldKey] and not Flash.config.buffIconSizes[newKey] then
+                        Flash.config.buffIconSizes[newKey] = Flash.config.buffIconSizes[oldKey]
+                        Flash.config.buffIconSizes[oldKey] = nil
+                    end
+                    if Flash.config.buffIcons[oldKey] and not Flash.config.buffIcons[newKey] then
+                        Flash.config.buffIcons[newKey] = Flash.config.buffIcons[oldKey]
+                        Flash.config.buffIcons[oldKey] = nil
+                    end
+                end
+            end
+        end
+    end
 end
 
 -- Reposition all buff icon frames to their saved offsets

@@ -1,9 +1,10 @@
 --[[
 Rules:
 1) Use `Flash.DebugError(msg)` to report missing helpers or unexpected states.
-2) Document defaults and why values were chosen near the variables.
-3) Avoid silent fallbacks; prefer explicit, logged behavior.
-4) When changing icons, open Reference Material/Spell Icons and use the class-specific folder to pick icons.
+2) Keep comments clear and up to date; add brief comments for non-obvious logic and behavior changes.
+3) Document defaults and why values were chosen near the variables.
+4) Avoid silent fallbacks; prefer explicit, logged behavior.
+5) When changing icons, open Reference Material/Spell Icons and use the class-specific folder to pick icons.
 ]]
 -- config.lua
 -- Move config bootstrapping out of FlashCore to keep responsibilities focused
@@ -21,6 +22,7 @@ local function ApplyConfigDefaults(cfg)
     cfg.trackedSpellsInCombat = (type(cfg.trackedSpellsInCombat) == "table") and cfg.trackedSpellsInCombat or {}
     cfg.buffIcons = (type(cfg.buffIcons) == "table") and cfg.buffIcons or {}
     cfg.buffIconSizes = (type(cfg.buffIconSizes) == "table") and cfg.buffIconSizes or {}
+    cfg.lastSeenBuffIcons = (type(cfg.lastSeenBuffIcons) == "table") and cfg.lastSeenBuffIcons or {}
     cfg._soundIndex = tonumber(cfg._soundIndex) or 1
     cfg.debugMode = cfg.debugMode and true or false
 end
@@ -41,7 +43,8 @@ local function EnsureConfig()
             trackedSpells = {},
             trackedSpellsInCombat = {},
             buffIcons = {},
-            buffIconSizes = {}
+            buffIconSizes = {},
+            lastSeenBuffIcons = {}
         }
         FlashCharacterConfig[pname] = cfg
     end

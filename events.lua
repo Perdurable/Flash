@@ -1,3 +1,11 @@
+--[[
+Rules:
+1) When dependencies or helpers are missing, call `Flash.DebugError(msg)` instead of silently falling back.
+2) Keep comments clear and up to date; add brief comments for non-obvious logic and behavior changes.
+3) Preserve existing public API names and file responsibilities unless the task explicitly requires otherwise.
+4) Avoid silent fallback behavior; prefer explicit, logged behavior for unexpected states.
+5) When choosing class icons, use Reference Material/Spell Icons and the matching class folder.
+]]
 -- events.lua - core runtime loop, checks, slash command, fallback UI builder
 Flash = Flash or {}
 Flash.alerted = Flash.alerted or {}
@@ -7,6 +15,35 @@ local function PlayMissingBuffSound()
     local sound = Flash.config and Flash.config.selectedSound
     if not sound or sound == "" then return end
     pcall(PlaySoundFile, sound)
+end
+
+local function IsIconPath(value)
+    if type(value) ~= "string" then return false end
+    return string.find(string.lower(value), "interface\\icons\\", 1, true) ~= nil
+end
+
+local function RememberLastSeenIcon(key, iconPath)
+    if not key or not IsIconPath(iconPath) then return end
+    Flash.config = Flash.config or {}
+    Flash.config.lastSeenBuffIcons = Flash.config.lastSeenBuffIcons or {}
+    Flash.config.lastSeenBuffIcons[key] = iconPath
+end
+
+local function ResolveMissingTrackerIcon(buff, key)
+    local remembered = Flash.config and Flash.config.lastSeenBuffIcons and Flash.config.lastSeenBuffIcons[key]
+    if IsIconPath(remembered) then
+        return remembered
+    end
+    if buff.iconCandidates and type(buff.iconCandidates) == "table" then
+        local firstKey = next(buff.iconCandidates)
+        if firstKey and IsIconPath(buff.iconCandidates[firstKey]) then
+            return buff.iconCandidates[firstKey]
+        end
+    end
+    if IsIconPath(buff.iconPath) then
+        return buff.iconPath
+    end
+    return "Interface\\Icons\\INV_Misc_QuestionMark"
 end
 
 -- Core buff check loop for the current class
@@ -62,7 +99,18 @@ local function CheckForBuffsForClass(playerClass)
             else
                 local hasBuff = false
 
-                if buff.weapon then
+                if buff.customCheck == "petSummoned" then
+                    hasBuff = UnitExists and UnitExists("pet") and true or false
+                elseif buff.customCheck == "petNotUnhappy" then
+                    hasBuff = true
+                    local getPetHappiness = (type(rawget) == "function" and type(_G) == "table") and rawget(_G, "GetPetHappiness") or nil
+                    if UnitExists and UnitExists("pet") and getPetHappiness then
+                        local happiness = getPetHappiness()
+                        if tonumber(happiness) == 1 then
+                            hasBuff = false
+                        end
+                    end
+                elseif buff.weapon then
                     local slot = buff.weaponSlot and tonumber(buff.weaponSlot) or nil
                     local scanSlots = {}
                     if buff.weaponAny then
@@ -132,22 +180,23 @@ local function CheckForBuffsForClass(playerClass)
                         end
                     end
                 else
+                    local matchedIcon = nil
                     local function MatchesBuffName(buffName, buffEntry)
                         local lowered = string.lower(buffName)
                         if buffEntry.detectedBuffPaths and type(buffEntry.detectedBuffPaths) == "table" then
                             for _, probe in ipairs(buffEntry.detectedBuffPaths) do
                                 if probe and string.find(lowered, string.lower(probe), 1, true) then
-                                    return true
+                                    return true, probe
                                 end
                             end
                         end
                         if buffEntry.detectedBuffPath and string.find(lowered, string.lower(buffEntry.detectedBuffPath), 1, true) then
-                            return true
+                            return true, buffEntry.detectedBuffPath
                         end
                         if buffEntry.iconPath and string.find(lowered, string.lower(buffEntry.iconPath), 1, true) then
-                            return true
+                            return true, buffEntry.iconPath
                         end
-                        return false
+                        return false, nil
                     end
 
                     for j = 1, 40 do
@@ -156,13 +205,32 @@ local function CheckForBuffsForClass(playerClass)
                         local dataCount = 0
                         for _ in ipairs(data) do dataCount = dataCount + 1 end
                         if dataCount == 0 then break end
+                        local matchedThisBuff = false
                         for k = 1, dataCount do
                             local v = data[k]
                             if type(v) == "string" then
-                                if MatchesBuffName(v, buff) then
-                                    hasBuff = true; break
+                                local matched, probe = MatchesBuffName(v, buff)
+                                if matched then
+                                    matchedThisBuff = true
+                                    hasBuff = true
+                                    if IsIconPath(probe) then
+                                        matchedIcon = probe
+                                    end
+                                    break
                                 end
                             end
+                        end
+                        if matchedThisBuff and not matchedIcon then
+                            for k = 1, dataCount do
+                                local v = data[k]
+                                if IsIconPath(v) then
+                                    matchedIcon = v
+                                    break
+                                end
+                            end
+                        end
+                        if matchedIcon then
+                            RememberLastSeenIcon(key, matchedIcon)
                         end
                         if hasBuff then break end
                     end
@@ -171,26 +239,14 @@ local function CheckForBuffsForClass(playerClass)
                 local info = Flash.buffIcons and Flash.buffIcons[key]
                 if not hasBuff then
                     if info and info.frame then
-                        local icon = nil
-                        if buff.iconCandidates and type(buff.iconCandidates) == "table" then
-                            local k = next(buff.iconCandidates)
-                            if k then icon = buff.iconCandidates[k] end
-                        end
-                        if not icon then icon = buff.iconPath end
-                        if not icon then icon = "Interface\\Icons\\INV_Misc_QuestionMark" end
+                        local icon = ResolveMissingTrackerIcon(buff, key)
                         info.frame.texture:SetTexture(icon)
                         info.frame:Show()
                         if Flash and type(Flash.UpdateIconPosition) == "function" then Flash.UpdateIconPosition() end
                         if not Flash.alerted[key] then PlayMissingBuffSound(); Flash.alerted[key] = true end
                     else
                         if Flash.iconTexture and Flash.iconFrame then
-                            local icon = nil
-                            if buff.iconCandidates and type(buff.iconCandidates) == "table" then
-                                local k = next(buff.iconCandidates)
-                                if k then icon = buff.iconCandidates[k] end
-                            end
-                            if not icon then icon = buff.iconPath end
-                            if not icon then icon = "Interface\\Icons\\INV_Misc_QuestionMark" end
+                            local icon = ResolveMissingTrackerIcon(buff, key)
                             Flash.iconTexture:SetTexture(icon)
                             Flash.iconFrame:Show()
                             if Flash and type(Flash.UpdateIconPosition) == "function" then Flash.UpdateIconPosition() end

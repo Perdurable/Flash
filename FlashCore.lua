@@ -1,9 +1,10 @@
 --[[
 Rules:
 1) Do not add silent fallback behavior; if a dependency or helper is missing call `Flash.DebugError(msg)`
-2) Add thorough comments for behavior and intent near complex logic
+2) Keep comments clear and up to date; add brief comments for non-obvious logic and behavior changes.
 3) Preserve existing public API names; annotate changes in header comments
-4) To choose icons, open the files under Reference Material/Spell Icons and pick icons from the folder matching the class being edited.
+4) Do not add silent fallback behavior for unexpected states; prefer explicit logged behavior.
+5) To choose icons, open the files under Reference Material/Spell Icons and pick icons from the folder matching the class being edited.
 
 When editing: prefer explicit errors and clear debug messages over hidden fallbacks.
 This header instructs any future editor (and the assistant) to emit debug errors
