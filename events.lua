@@ -34,27 +34,62 @@ local function RememberPetIconForTracker(buff, key)
     if not (UnitExists and UnitExists("pet")) then return end
     if not (buff.petIconByName and type(buff.petIconByName) == "table") then return end
 
+    local unitCreatureFamily = (type(rawget) == "function" and type(_G) == "table") and rawget(_G, "UnitCreatureFamily") or nil
+    local petFamily = unitCreatureFamily and unitCreatureFamily("pet") or nil
     local petName = UnitName and UnitName("pet") or nil
-    if type(petName) ~= "string" or petName == "" then return end
-    local loweredName = string.lower(petName)
+
+    local candidates = {}
+    if type(petFamily) == "string" and petFamily ~= "" then
+        table.insert(candidates, string.lower(petFamily))
+    end
+    if type(petName) == "string" and petName ~= "" then
+        table.insert(candidates, string.lower(petName))
+    end
+    if next(candidates) == nil then return end
 
     local icon = nil
-    icon = buff.petIconByName[loweredName]
+    local matchedKey = nil
+    for _, probeValue in ipairs(candidates) do
+        icon = buff.petIconByName[probeValue]
+        if icon then
+            matchedKey = probeValue
+            break
+        end
+    end
+
     if not icon then
         for probe, mappedIcon in pairs(buff.petIconByName) do
-            if probe and mappedIcon and string.find(loweredName, string.lower(tostring(probe)), 1, true) then
-                icon = mappedIcon
-                break
+            if probe and mappedIcon then
+                local loweredProbe = string.lower(tostring(probe))
+                for _, probeValue in ipairs(candidates) do
+                    if string.find(probeValue, loweredProbe, 1, true) then
+                        icon = mappedIcon
+                        matchedKey = loweredProbe
+                        break
+                    end
+                end
+                if icon then break end
             end
         end
     end
 
     if IsIconPath(icon) then
+        Flash.config = Flash.config or {}
+        Flash.config.lastSummonedPetByTracker = Flash.config.lastSummonedPetByTracker or {}
+        Flash.config.lastSummonedPetByTracker[key] = matchedKey or candidates[1]
         RememberLastSeenIcon(key, icon)
     end
 end
 
 local function ResolveMissingTrackerIcon(buff, key)
+    local rememberedPet = Flash.config and Flash.config.lastSummonedPetByTracker and Flash.config.lastSummonedPetByTracker[key]
+    if rememberedPet and buff and buff.petIconByName and type(buff.petIconByName) == "table" then
+        local petIcon = buff.petIconByName[tostring(rememberedPet)]
+        if IsIconPath(petIcon) then
+            return petIcon
+        end
+    end
+
     local remembered = Flash.config and Flash.config.lastSeenBuffIcons and Flash.config.lastSeenBuffIcons[key]
     if IsIconPath(remembered) then
         return remembered
@@ -69,6 +104,37 @@ local function ResolveMissingTrackerIcon(buff, key)
         return buff.iconPath
     end
     return "Interface\\Icons\\INV_Misc_QuestionMark"
+end
+
+local function CountItemInBagsByName(itemName)
+    if type(itemName) ~= "string" or itemName == "" then return 0 end
+    local target = string.lower(itemName)
+    local total = 0
+
+    local getContainerNumSlots = (type(rawget) == "function" and type(_G) == "table") and rawget(_G, "GetContainerNumSlots") or nil
+    local getContainerItemLink = (type(rawget) == "function" and type(_G) == "table") and rawget(_G, "GetContainerItemLink") or nil
+    local getContainerItemInfo = (type(rawget) == "function" and type(_G) == "table") and rawget(_G, "GetContainerItemInfo") or nil
+
+    if not getContainerNumSlots then return 0 end
+
+    for bag = 0, 4 do
+        local slots = tonumber(getContainerNumSlots(bag)) or 0
+        for slot = 1, slots do
+            local link = getContainerItemLink and getContainerItemLink(bag, slot) or nil
+            if type(link) == "string" and string.find(string.lower(link), target, 1, true) then
+                local count = 1
+                if getContainerItemInfo then
+                    local _, itemCount = getContainerItemInfo(bag, slot)
+                    if tonumber(itemCount) and tonumber(itemCount) > 0 then
+                        count = tonumber(itemCount)
+                    end
+                end
+                total = total + count
+            end
+        end
+    end
+
+    return total
 end
 
 -- Core buff check loop for the current class
@@ -129,6 +195,18 @@ local function CheckForBuffsForClass(playerClass)
                     if hasBuff then
                         RememberPetIconForTracker(buff, key)
                     end
+                elseif buff.customCheck == "soulShards" then
+                    local itemName = (type(buff.itemName) == "string" and buff.itemName ~= "") and buff.itemName or "Soul Shard"
+                    local defaultMin = tonumber(buff.thresholdDefault) or 10
+                    Flash.config.trackedSpellThresholds = Flash.config.trackedSpellThresholds or {}
+                    if Flash.config.trackedSpellThresholds[key] == nil then
+                        Flash.config.trackedSpellThresholds[key] = defaultMin
+                    end
+                    local minCount = tonumber(Flash.config.trackedSpellThresholds[key]) or defaultMin
+                    if minCount < 0 then minCount = 0 end
+
+                    local shardCount = CountItemInBagsByName(itemName)
+                    hasBuff = shardCount >= minCount
                 elseif buff.customCheck == "petNotUnhappy" then
                     hasBuff = true
                     local getPetHappiness = (type(rawget) == "function" and type(_G) == "table") and rawget(_G, "GetPetHappiness") or nil

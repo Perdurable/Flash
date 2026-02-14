@@ -49,6 +49,7 @@ Flash.classBuffs["SHAMAN"] = {
 
 Flash.classBuffs["WARLOCK"] = {
 	{ displayName = "Demon Armor", iconPath = "Interface\\Icons\\Spell_Shadow_RagingScream", detectedBuffPath = "Demon Armor" },
+	{ displayName = "Soul Shards", iconPath = "Interface\\Icons\\INV_Misc_Gem_Amethyst_02", detectedBuffPath = "Soul Shards", customCheck = "soulShards", itemName = "Soul Shard", thresholdInput = true, thresholdDefault = 10 },
 	{ displayName = "Pet Summoned", iconPath = "Interface\\Icons\\Spell_Shadow_SummonVoidWalker", detectedBuffPath = "Pet Summoned", customCheck = "petSummoned", petIconByName = {
 		["imp"] = "Interface\\Icons\\Spell_Shadow_SummonImp",
 		["voidwalker"] = "Interface\\Icons\\Spell_Shadow_SummonVoidWalker",

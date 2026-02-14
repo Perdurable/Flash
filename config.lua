@@ -22,7 +22,9 @@ local function ApplyConfigDefaults(cfg)
     cfg.trackedSpellsInCombat = (type(cfg.trackedSpellsInCombat) == "table") and cfg.trackedSpellsInCombat or {}
     cfg.buffIcons = (type(cfg.buffIcons) == "table") and cfg.buffIcons or {}
     cfg.buffIconSizes = (type(cfg.buffIconSizes) == "table") and cfg.buffIconSizes or {}
+    cfg.trackedSpellThresholds = (type(cfg.trackedSpellThresholds) == "table") and cfg.trackedSpellThresholds or {}
     cfg.lastSeenBuffIcons = (type(cfg.lastSeenBuffIcons) == "table") and cfg.lastSeenBuffIcons or {}
+    cfg.lastSummonedPetByTracker = (type(cfg.lastSummonedPetByTracker) == "table") and cfg.lastSummonedPetByTracker or {}
     cfg._soundIndex = tonumber(cfg._soundIndex) or 1
     cfg.debugMode = cfg.debugMode and true or false
 end
@@ -44,7 +46,9 @@ local function EnsureConfig()
             trackedSpellsInCombat = {},
             buffIcons = {},
             buffIconSizes = {},
-            lastSeenBuffIcons = {}
+            trackedSpellThresholds = {},
+            lastSeenBuffIcons = {},
+            lastSummonedPetByTracker = {}
         }
         FlashCharacterConfig[pname] = cfg
     end

@@ -463,15 +463,59 @@ local function BuildRow_Global(container, playerClass, i, buff)
         if not checked and Flash.alerted then Flash.alerted[key] = nil end
     end)
 
-    Flash.config.trackedSpellsInCombat = Flash.config.trackedSpellsInCombat or {}
-    local cbCombatName = name.."_InCombat"
-    local cbCombat = MakeCheckButton_Global(cbCombatName, container, CLASS_COL_COMBAT_X, rowY, "In Combat", "GameFontNormalSmall")
-    if Flash.config.trackedSpellsInCombat[key] == nil then Flash.config.trackedSpellsInCombat[key] = false end
-    cbCombat:SetChecked(Flash.config.trackedSpellsInCombat[key])
-    cbCombat:SetScript("OnClick", function()
-        local checked = cbCombat:GetChecked() and true or false
-        Flash.config.trackedSpellsInCombat[key] = checked
-    end)
+    local cbCombat = nil
+    local thresholdBox = nil
+    if buff.thresholdInput then
+        Flash.config.trackedSpellThresholds = Flash.config.trackedSpellThresholds or {}
+        local defaultThreshold = tonumber(buff.thresholdDefault) or 10
+        if Flash.config.trackedSpellThresholds[key] == nil then
+            Flash.config.trackedSpellThresholds[key] = defaultThreshold
+        end
+
+        local thresholdName = name.."_Threshold"
+        thresholdBox = MakeEditBox_Global(thresholdName, container, CLASS_COL_COMBAT_X, inputRowY)
+        thresholdBox:SetText(tostring(Flash.config.trackedSpellThresholds[key] or defaultThreshold))
+        thresholdBox:SetScript("OnEnterPressed", function()
+            local val = tonumber(thresholdBox:GetText() or "")
+            if not val then
+                thresholdBox:SetText(tostring(Flash.config.trackedSpellThresholds[key] or defaultThreshold))
+            else
+                val = math.floor(val + 0.5)
+                if val < 0 then val = 0 end
+                Flash.config.trackedSpellThresholds[key] = val
+                thresholdBox:SetText(tostring(val))
+            end
+            thresholdBox:ClearFocus()
+        end)
+        thresholdBox:SetScript("OnEscapePressed", function()
+            thresholdBox:SetText(tostring(Flash.config.trackedSpellThresholds[key] or defaultThreshold))
+            thresholdBox:ClearFocus()
+        end)
+        thresholdBox:SetScript("OnEditFocusLost", function()
+            local val = tonumber(thresholdBox:GetText() or "")
+            if not val then
+                thresholdBox:SetText(tostring(Flash.config.trackedSpellThresholds[key] or defaultThreshold))
+                return
+            end
+            val = math.floor(val + 0.5)
+            if val < 0 then val = 0 end
+            Flash.config.trackedSpellThresholds[key] = val
+            thresholdBox:SetText(tostring(val))
+        end)
+
+        Flash.config.trackedSpellsInCombat = Flash.config.trackedSpellsInCombat or {}
+        Flash.config.trackedSpellsInCombat[key] = false
+    else
+        Flash.config.trackedSpellsInCombat = Flash.config.trackedSpellsInCombat or {}
+        local cbCombatName = name.."_InCombat"
+        cbCombat = MakeCheckButton_Global(cbCombatName, container, CLASS_COL_COMBAT_X, rowY, "In Combat", "GameFontNormalSmall")
+        if Flash.config.trackedSpellsInCombat[key] == nil then Flash.config.trackedSpellsInCombat[key] = false end
+        cbCombat:SetChecked(Flash.config.trackedSpellsInCombat[key])
+        cbCombat:SetScript("OnClick", function()
+            local checked = cbCombat:GetChecked() and true or false
+            Flash.config.trackedSpellsInCombat[key] = checked
+        end)
+    end
 
     Flash.config.buffIconSizes = Flash.config.buffIconSizes or {}
         if Flash.config.buffIconSizes[key] == nil then Flash.config.buffIconSizes[key] = 60 end
@@ -528,7 +572,8 @@ local function BuildRow_Global(container, playerClass, i, buff)
     sizeBox:SetScript("OnEditFocusLost", function() applySizeFromBox() end)
 
     table.insert(FlashOptionsMenu._classCheckboxes, cb)
-    table.insert(FlashOptionsMenu._classCheckboxes, cbCombat)
+    if cbCombat then table.insert(FlashOptionsMenu._classCheckboxes, cbCombat) end
+    if thresholdBox then table.insert(FlashOptionsMenu._classCheckboxes, thresholdBox) end
     table.insert(FlashOptionsMenu._classCheckboxes, sizeBox)
 end
 
@@ -749,16 +794,60 @@ local function BuildClassCheckboxes()
             if not checked and Flash.alerted then Flash.alerted[key] = nil end
         end)
 
-        -- In-Combat-only checkbox (to the right of the main checkbox)
-        Flash.config.trackedSpellsInCombat = Flash.config.trackedSpellsInCombat or {}
-        local cbCombatName = name.."_InCombat"
-        local cbCombat = MakeCheckButton(cbCombatName, container, CLASS_COL_COMBAT_X, rowY, "In Combat", "GameFontNormalSmall")
-        if Flash.config.trackedSpellsInCombat[key] == nil then Flash.config.trackedSpellsInCombat[key] = false end
-        cbCombat:SetChecked(Flash.config.trackedSpellsInCombat[key])
-        cbCombat:SetScript("OnClick", function()
-            local checked = cbCombat:GetChecked() and true or false
-            Flash.config.trackedSpellsInCombat[key] = checked
-        end)
+        -- In-Combat-only checkbox (to the right of the main checkbox), or a numeric threshold box for count-based trackers.
+        local cbCombat = nil
+        local thresholdBox = nil
+        if buff.thresholdInput then
+            Flash.config.trackedSpellThresholds = Flash.config.trackedSpellThresholds or {}
+            local defaultThreshold = tonumber(buff.thresholdDefault) or 10
+            if Flash.config.trackedSpellThresholds[key] == nil then
+                Flash.config.trackedSpellThresholds[key] = defaultThreshold
+            end
+
+            local thresholdName = name.."_Threshold"
+            thresholdBox = MakeEditBox(thresholdName, container, CLASS_COL_COMBAT_X, inputRowY)
+            thresholdBox:SetText(tostring(Flash.config.trackedSpellThresholds[key] or defaultThreshold))
+            thresholdBox:SetScript("OnEnterPressed", function()
+                local val = tonumber(thresholdBox:GetText() or "")
+                if not val then
+                    thresholdBox:SetText(tostring(Flash.config.trackedSpellThresholds[key] or defaultThreshold))
+                else
+                    val = math.floor(val + 0.5)
+                    if val < 0 then val = 0 end
+                    Flash.config.trackedSpellThresholds[key] = val
+                    thresholdBox:SetText(tostring(val))
+                end
+                thresholdBox:ClearFocus()
+            end)
+            thresholdBox:SetScript("OnEscapePressed", function()
+                thresholdBox:SetText(tostring(Flash.config.trackedSpellThresholds[key] or defaultThreshold))
+                thresholdBox:ClearFocus()
+            end)
+            thresholdBox:SetScript("OnEditFocusLost", function()
+                local val = tonumber(thresholdBox:GetText() or "")
+                if not val then
+                    thresholdBox:SetText(tostring(Flash.config.trackedSpellThresholds[key] or defaultThreshold))
+                    return
+                end
+                val = math.floor(val + 0.5)
+                if val < 0 then val = 0 end
+                Flash.config.trackedSpellThresholds[key] = val
+                thresholdBox:SetText(tostring(val))
+            end)
+
+            Flash.config.trackedSpellsInCombat = Flash.config.trackedSpellsInCombat or {}
+            Flash.config.trackedSpellsInCombat[key] = false
+        else
+            Flash.config.trackedSpellsInCombat = Flash.config.trackedSpellsInCombat or {}
+            local cbCombatName = name.."_InCombat"
+            cbCombat = MakeCheckButton(cbCombatName, container, CLASS_COL_COMBAT_X, rowY, "In Combat", "GameFontNormalSmall")
+            if Flash.config.trackedSpellsInCombat[key] == nil then Flash.config.trackedSpellsInCombat[key] = false end
+            cbCombat:SetChecked(Flash.config.trackedSpellsInCombat[key])
+            cbCombat:SetScript("OnClick", function()
+                local checked = cbCombat:GetChecked() and true or false
+                Flash.config.trackedSpellsInCombat[key] = checked
+            end)
+        end
 
         -- Icon size edit box (far right)
         Flash.config.buffIconSizes = Flash.config.buffIconSizes or {}
@@ -833,7 +922,8 @@ local function BuildClassCheckboxes()
 
         -- Store references so we can hide/reuse them later
         table.insert(FlashOptionsMenu._classCheckboxes, cb)
-        table.insert(FlashOptionsMenu._classCheckboxes, cbCombat)
+        if cbCombat then table.insert(FlashOptionsMenu._classCheckboxes, cbCombat) end
+        if thresholdBox then table.insert(FlashOptionsMenu._classCheckboxes, thresholdBox) end
         table.insert(FlashOptionsMenu._classCheckboxes, sizeBox)
     end
 
