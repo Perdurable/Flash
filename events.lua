@@ -29,6 +29,31 @@ local function RememberLastSeenIcon(key, iconPath)
     Flash.config.lastSeenBuffIcons[key] = iconPath
 end
 
+local function RememberPetIconForTracker(buff, key)
+    if not buff or not key then return end
+    if not (UnitExists and UnitExists("pet")) then return end
+    if not (buff.petIconByName and type(buff.petIconByName) == "table") then return end
+
+    local petName = UnitName and UnitName("pet") or nil
+    if type(petName) ~= "string" or petName == "" then return end
+    local loweredName = string.lower(petName)
+
+    local icon = nil
+    icon = buff.petIconByName[loweredName]
+    if not icon then
+        for probe, mappedIcon in pairs(buff.petIconByName) do
+            if probe and mappedIcon and string.find(loweredName, string.lower(tostring(probe)), 1, true) then
+                icon = mappedIcon
+                break
+            end
+        end
+    end
+
+    if IsIconPath(icon) then
+        RememberLastSeenIcon(key, icon)
+    end
+end
+
 local function ResolveMissingTrackerIcon(buff, key)
     local remembered = Flash.config and Flash.config.lastSeenBuffIcons and Flash.config.lastSeenBuffIcons[key]
     if IsIconPath(remembered) then
@@ -101,6 +126,9 @@ local function CheckForBuffsForClass(playerClass)
 
                 if buff.customCheck == "petSummoned" then
                     hasBuff = UnitExists and UnitExists("pet") and true or false
+                    if hasBuff then
+                        RememberPetIconForTracker(buff, key)
+                    end
                 elseif buff.customCheck == "petNotUnhappy" then
                     hasBuff = true
                     local getPetHappiness = (type(rawget) == "function" and type(_G) == "table") and rawget(_G, "GetPetHappiness") or nil
@@ -153,7 +181,12 @@ local function CheckForBuffsForClass(playerClass)
                         end
                     else
                         -- No explicit keywords: fall back to fast slot-enchant checks or probe-based checks
-                        if buff.weaponAny then
+                        if buff.weaponAnyInSlot then
+                            local checkSlot = tonumber(slot) or 16
+                            if Flash.IsWeaponSlotHasAnyEnchant and Flash.IsWeaponSlotHasAnyEnchant(checkSlot) then
+                                hasBuff = true
+                            end
+                        elseif buff.weaponAny then
                             if (Flash.IsWeaponSlotHasAnyEnchant and Flash.IsWeaponSlotHasAnyEnchant(16)) or (Flash.IsWeaponSlotHasAnyEnchant and Flash.IsWeaponSlotHasAnyEnchant(17)) then
                                 hasBuff = true
                             end

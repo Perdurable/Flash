@@ -37,8 +37,8 @@ Flash.classBuffs["PRIEST"] = {
 }
 
 Flash.classBuffs["ROGUE"] = {
-	{ displayName = "Main Hand Poison", iconPath = "Interface\\Icons\\Ability_Poisons", detectedBuffPath = "Main Hand Poison", weapon = true, weaponSlot = 16, weaponAny = true },
-	{ displayName = "Off Hand Poison", iconPath = "Interface\\Icons\\Ability_Poisons", detectedBuffPath = "Off Hand Poison", weapon = true, weaponSlot = 17, weaponAny = true },
+	{ displayName = "Main Hand Poison", iconPath = "Interface\\Icons\\Ability_Poisons", detectedBuffPath = "Main Hand Poison", weapon = true, weaponSlot = 16, weaponAnyInSlot = true },
+	{ displayName = "Off Hand Poison", iconPath = "Interface\\Icons\\Ability_Poisons", detectedBuffPath = "Off Hand Poison", weapon = true, weaponSlot = 17, weaponAnyInSlot = true },
 }
 
 Flash.classBuffs["SHAMAN"] = {
@@ -48,8 +48,17 @@ Flash.classBuffs["SHAMAN"] = {
 }
 
 Flash.classBuffs["WARLOCK"] = {
-	{ iconPath = "Interface\\Icons\\Spell_Shadow_DemonBreath", detectedBuffPath = "Interface\\Icons\\Spell_Shadow_DemonBreath" },
-	{ displayName = "Pet Summoned", iconPath = "Interface\\Icons\\Spell_Shadow_SummonVoidWalker", detectedBuffPath = "Pet Summoned", customCheck = "petSummoned" }
+	{ displayName = "Demon Armor", iconPath = "Interface\\Icons\\Spell_Shadow_RagingScream", detectedBuffPath = "Demon Armor" },
+	{ displayName = "Pet Summoned", iconPath = "Interface\\Icons\\Spell_Shadow_SummonVoidWalker", detectedBuffPath = "Pet Summoned", customCheck = "petSummoned", petIconByName = {
+		["imp"] = "Interface\\Icons\\Spell_Shadow_SummonImp",
+		["voidwalker"] = "Interface\\Icons\\Spell_Shadow_SummonVoidWalker",
+		["succubus"] = "Interface\\Icons\\Spell_Shadow_SummonSuccubus",
+		["incubus"] = "Interface\\Icons\\ability_warlock_incubus",
+		["felhunter"] = "Interface\\Icons\\Spell_Shadow_SummonFelHunter",
+		["infernal"] = "Interface\\Icons\\Spell_Shadow_SummonInfernal",
+		["doomguard"] = "Interface\\Icons\\Spell_Shadow_AntiMagicShell",
+		["felguard"] = "Interface\\Icons\\Spell_Shadow_SummonFelGuard"
+	} }
 }
 
 Flash.classBuffs["WARRIOR"] = {

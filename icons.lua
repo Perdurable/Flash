@@ -216,11 +216,6 @@ end
 
 Flash.UpdateVisibilityBasedOnBuffs = UpdateVisibilityBasedOnBuffs
 
--- Export helper functions for other modules
-Flash.LoadClassBuffs = LoadClassBuffs
-Flash.IsWeaponEnchantedWith = IsWeaponEnchantedWith
-Flash.IsWeaponSlotHasAnyEnchant = IsWeaponSlotHasAnyEnchant
-
 -- Helper: scan equipped weapon enchantments by inspecting item tooltip text
 local function IsWeaponEnchantedWith(name, slotID)
     if type(name) ~= "string" then return false end
@@ -251,6 +246,20 @@ end
 
 -- Check whether a specific weapon slot has any known poison/enchant applied
 local function IsWeaponSlotHasAnyEnchant(slotID)
+    if type(GetWeaponEnchantInfo) == "function" then
+        local hasMainEnchant, _, _, hasOffEnchant = GetWeaponEnchantInfo()
+        local slot = tonumber(slotID)
+        if slot == 16 then
+            return hasMainEnchant and true or false
+        end
+        if slot == 17 then
+            return hasOffEnchant and true or false
+        end
+        if slot == nil then
+            return (hasMainEnchant and true or false) or (hasOffEnchant and true or false)
+        end
+    end
+
     Flash._scanTooltip = Flash._scanTooltip or CreateFrame("GameTooltip", "FlashScanTooltip", UIParent, "GameTooltipTemplate")
     local tt = Flash._scanTooltip
     tt:SetOwner(UIParent, "ANCHOR_NONE")
@@ -264,6 +273,8 @@ local function IsWeaponSlotHasAnyEnchant(slotID)
         "mind-numbing poison",
         "mind numbing poison",
         "wound poison",
+        "anesthetic poison",
+        "poison",
     }
     for i = 1, 30 do
         local left = _G[prefix .. "TextLeft" .. i]
@@ -280,3 +291,8 @@ local function IsWeaponSlotHasAnyEnchant(slotID)
     end
     return false
 end
+
+-- Export helper functions for other modules
+Flash.LoadClassBuffs = LoadClassBuffs
+Flash.IsWeaponEnchantedWith = IsWeaponEnchantedWith
+Flash.IsWeaponSlotHasAnyEnchant = IsWeaponSlotHasAnyEnchant
